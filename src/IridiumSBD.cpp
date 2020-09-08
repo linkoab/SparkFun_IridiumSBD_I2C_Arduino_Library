@@ -602,7 +602,8 @@ int IridiumSBD::internalBegin()
 
 int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *txData, size_t txDataSize, uint8_t *rxBuffer, size_t *prxBufferSize)
 {
-   diagprint(F("internalSendReceive\r\n"));
+   //diagprint(F("internalSendReceive\r\n"));
+   log_d("internalSendReceive");
 
    if (this->asleep)
       return ISBD_IS_ASLEEP;
@@ -666,13 +667,16 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
             diagprint(F("I2C write was not successful!\r\n"));
       }
 
-      consoleprint(F("["));
+      /*
+	  consoleprint(F("["));
       consoleprint((uint16_t)txDataSize);
       consoleprint(F(" bytes]"));
 
       diagprint(F("Checksum:"));
       diagprint(checksum);
       diagprint(F("\r\n"));
+	  */
+	  log_i("[%d bytes] Checksum:%d", checksum);
 
       if (!waitForATResponse(NULL, 0, NULL, "0\r\n\r\nOK\r\n"))
          return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
