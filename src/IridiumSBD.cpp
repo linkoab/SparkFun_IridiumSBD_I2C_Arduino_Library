@@ -731,18 +731,23 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
          if (ret != ISBD_SUCCESS)
             return ret;
 
-         diagprint(F("SBDIX MO code: "));
+         /*
+		 diagprint(F("SBDIX MO code: "));
          diagprint(moCode);
          diagprint(F("\r\n"));
+		 */
+		 log_i("SBDIX moCode:%d moMSN:%d mtCode:%d mtMSN:%d mtLen:%d mtRemaining:%d", moCode, moMSN, mtCode, mtMSN, mtLen, mtRemaining);
 
          if (moCode >= 0 && moCode <= 4) // this range indicates successful return!
          {
-            diagprint(F("SBDIX success!\r\n"));
+            //diagprint(F("SBDIX success!\r\n"));
+            log_i("SBDIX success!");
 
             this->remainingMessages = mtRemaining;
             if (mtCode == 1 && rxBuffer) // retrieved 1 message
             {
-               diagprint(F("Incoming message!\r\n"));
+               //diagprint(F("Incoming message!\r\n"));
+               log_i("Incoming message!");
                return doSBDRB(rxBuffer, prxBufferSize);
             }
 
@@ -757,13 +762,15 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
 
          else if (moCode == 12 || moCode == 14 || moCode == 16) // fatal failure: no retry
          {
-            diagprint(F("SBDIX fatal!\r\n"));
+            //diagprint(F("SBDIX fatal!\r\n"));
+            log_e("SBDIX fatal!");
             return ISBD_SBDIX_FATAL_ERROR;
          }
 
          else // retry
          {
-            diagprint(F("Waiting for SBDIX retry...\r\n"));
+            //diagprint(F("Waiting for SBDIX retry...\r\n"));
+            log_i("Waiting for SBDIX retry...");
             if (!noBlockWait(sbdixInterval))
                return ISBD_CANCELLED;
          }
@@ -771,13 +778,15 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
 
       else // MSSTM check fail
       {
-         diagprint(F("Waiting for MSSTM retry...\r\n"));
+         //diagprint(F("Waiting for MSSTM retry...\r\n"));
+         log_i("Waiting for MSSTM retry...");
          if (!noBlockWait(ISBD_MSSTM_RETRY_INTERVAL))
             return ISBD_CANCELLED;
       }
    } // big wait loop
 
-   diagprint(F("SBDIX timeout!\r\n"));
+   //diagprint(F("SBDIX timeout!\r\n"));
+   log_e("SBDIX timeout!");
    return ISBD_SENDRECEIVE_TIMEOUT;
 }
 
@@ -867,7 +876,10 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
    diagprint(terminator);
    diagprint(F("\r\n"));
    */
-	log_d("Waiting for response %s", terminator);
+	String s = terminator;
+	s.replace("\r", "\\r");
+	s.replace("\n", "\\n");
+	log_d("Waiting for response %s", s.c_str());
 
    if (response)
       memset(response, 0, responseSize);
@@ -1148,7 +1160,7 @@ void IridiumSBD::send(FlashString str, bool beginLine, bool endLine)
    s += str;
    if (endLine) {
       //consoleprint(F("\r\n"));
-	  s += "\r\n";
+	  s += "\\r\\n";
    }
    log_d("%s", s.c_str());
    if (this->useSerial)
