@@ -862,9 +862,12 @@ bool IridiumSBD::noBlockWait(int seconds)
 // stored in response buffer for later parsing by caller.
 bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
 {
+   /*
    diagprint(F("Waiting for response "));
    diagprint(terminator);
    diagprint(F("\r\n"));
+   */
+	log_d("Waiting for response %s", terminator);
 
    if (response)
       memset(response, 0, responseSize);
@@ -873,7 +876,8 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
    int matchTerminatorPos = 0; // Matches chars in terminator
    enum {LOOKING_FOR_PROMPT, GATHERING_RESPONSE, LOOKING_FOR_TERMINATOR};
    int promptState = prompt ? LOOKING_FOR_PROMPT : LOOKING_FOR_TERMINATOR;
-   consoleprint(F("<< "));
+   //consoleprint(F("<< "));
+   log_d("<< ");
    for (unsigned long start=millis(); millis() - start < 1000UL * atTimeout;)
    {
       if (cancelled())
@@ -1135,11 +1139,18 @@ void IridiumSBD::power(bool on)
 
 void IridiumSBD::send(FlashString str, bool beginLine, bool endLine)
 {
-   if (beginLine)
-      consoleprint(F(">> "));
-   consoleprint(str);
-   if (endLine)
-      consoleprint(F("\r\n"));
+   String s;
+	if (beginLine) {
+     // consoleprint(F(">> "));
+     s =">> ";
+   }
+   //consoleprint(str);
+   s += str;
+   if (endLine) {
+      //consoleprint(F("\r\n"));
+	  s += "\r\n";
+   }
+   log_d("%s", s.c_str());
    if (this->useSerial)
    {
       stream->print(str);
@@ -1157,9 +1168,12 @@ void IridiumSBD::send(FlashString str, bool beginLine, bool endLine)
 
 void IridiumSBD::send(const char *str)
 {
+   /*
    consoleprint(F(">> "));
    consoleprint(str);
    consoleprint(F("\r\n"));
+   */
+	log_d(">> %s", str);
    if (this->useSerial)
    {
       stream->print(str);
@@ -1301,6 +1315,8 @@ void IridiumSBD::SBDRINGSeen()
 // nextChar.
 void IridiumSBD::filterSBDRING()
 {
+	String s;
+	String str;
    if(!this->useSerial) check9603data(); // Check for new 9603 serial data
    while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    {
@@ -1313,7 +1329,17 @@ void IridiumSBD::filterSBDRING()
       {
          c = i2cSerRead();
       }
-      consoleprint(c);
+      //consoleprint(c);
+	  if (c == '\r') {
+	  	s = "\\r";
+	  } else if (c == '\n') {
+	  	s = "\\n";
+		} else {
+	  	s = String(c);
+		}
+	  str += s;
+
+	  log_d("%s %s", s.c_str(), str.c_str());
       if (*head != 0 && c == *head)
       {
          ++head;
@@ -1380,6 +1406,8 @@ int IridiumSBD::filteredread()
 //Reads the available serial bytes (if any) and stores them in i2c_ser_buffer
 void IridiumSBD::check9603data()
 {
+	log_e("BUG!!");
+	return;
   if (millis() - lastCheck >= I2C_POLLING_WAIT_MS)
   {
     //Check how many serial bytes are waiting to be read
@@ -1431,6 +1459,8 @@ void IridiumSBD::check9603data()
 //Reads the IO pins and update IO_REGISTER
 void IridiumSBD::check9603pins()
 {
+	log_e("BUG!!");
+	return;
   //Read the 'IO_REGISTER'
   wireport->beginTransmission((uint8_t)deviceaddress); // Talk to the I2C device
   wireport->write(IO_REG); // Point to the 'IO register'
