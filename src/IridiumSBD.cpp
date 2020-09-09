@@ -518,7 +518,8 @@ Private interface
 
 int IridiumSBD::internalBegin()
 {
-   diagprint(F("Calling internalBegin\r\n"));
+   //diagprint(F("Calling internalBegin\r\n"));
+   log_d("Calling internalBegin");
 
    if (!this->asleep)
       return ISBD_ALREADY_AWAKE;
@@ -549,7 +550,8 @@ int IridiumSBD::internalBegin()
 
    if (!modemAlive)
    {
-      diagprint(F("No modem detected.\r\n"));
+      //diagprint(F("No modem detected.\r\n"));
+      log_d("No modem detected.");
       return ISBD_NO_MODEM_DETECTED;
    }
 
@@ -564,7 +566,8 @@ int IridiumSBD::internalBegin()
 
    // Enable or disable RING alerts as requested by user
    // By default they are on if a RING pin was supplied on constructor
-   diagprint(F("Ring alerts are")); diagprint(ringAlertsEnabled ? F("") : F(" NOT")); diagprint(F(" enabled.\r\n"));
+   //diagprint(F("Ring alerts are")); diagprint(ringAlertsEnabled ? F("") : F(" NOT")); diagprint(F(" enabled.\r\n"));
+   log_d("Ring alerts are %s enabled.", ringAlertsEnabled ? "" : " NOT");
 
    if (ringAlertsEnabled) enableRingAlerts(true); // This will clear ringAsserted and the Ring Indicator flag
    else {
@@ -581,22 +584,26 @@ int IridiumSBD::internalBegin()
    int ret = getFirmwareVersion(version, sizeof(version));
    if (ret != ISBD_SUCCESS)
    {
-      diagprint(F("Unknown FW version\r\n"));
+      //diagprint(F("Unknown FW version\r\n"));
+      log_d("Unknown FW version");
       msstmWorkaroundRequested = true;
    }
    else
    {
-      diagprint(F("Firmware version is ")); diagprint(version); diagprint(F("\r\n"));
+      //diagprint(F("Firmware version is ")); diagprint(version); diagprint(F("\r\n"));
+     log_d("Firmware version is %s ", version);
       if (version[0] == 'T' && version[1] == 'A')
       {
          unsigned long ver = strtoul(version + 2, NULL, 10);
          msstmWorkaroundRequested = ver < ISBD_MSSTM_WORKAROUND_FW_VER;
       }
    }
-   diagprint(F("MSSTM workaround is")); diagprint(msstmWorkaroundRequested ? F("") : F(" NOT")); diagprint(F(" enforced.\r\n"));
+   //diagprint(F("MSSTM workaround is")); diagprint(msstmWorkaroundRequested ? F("") : F(" NOT")); diagprint(F(" enforced.\r\n"));
+   log_d("MSSTM workaround is %s enforced.", msstmWorkaroundRequested ? "" : " NOT");
 
    // Done!
-   diagprint(F("InternalBegin: success!\r\n"));
+   //diagprint(F("InternalBegin: success!\r\n"));
+   log_d("InternalBegin: success!");
    return ISBD_SUCCESS;
 }
 
@@ -875,6 +882,9 @@ bool IridiumSBD::noBlockWait(int seconds)
 // stored in response buffer for later parsing by caller.
 bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
 {
+   unsigned long while_counter = 0;
+   unsigned long for_counter = 0;
+	log_v(">> %s", __FUNCTION__);
    /*
    diagprint(F("Waiting for response "));
    diagprint(terminator);
@@ -894,13 +904,25 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
    int promptState = prompt ? LOOKING_FOR_PROMPT : LOOKING_FOR_TERMINATOR;
    //consoleprint(F("<< "));
    log_d("<< ");
+   for_counter = 0;
    for (unsigned long start=millis(); millis() - start < 1000UL * atTimeout;)
    {
+		for_counter++;
+   		if (for_counter%100000 == 0) {
+	   	log_v("%s for() %u", __FUNCTION__, for_counter);
+		}
+
       if (cancelled())
          return false;
 
-      while (filteredavailable() > 0)
+      while_counter = 0;
+	  while (filteredavailable() > 0)
       {
+		while_counter++;
+   		if (while_counter%1000 == 0) {
+   		log_v("%s while() %u", __FUNCTION__, while_counter);
+		}
+
          char c = filteredread();
          if (prompt)
          {
@@ -949,6 +971,7 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
          }
       } // while (filteredavailable() > 0)
    } // timer loop
+   log_v("<< %s", __FUNCTION__);
    return false;
 }
 
@@ -1322,7 +1345,8 @@ void IridiumSBD::consoleprint(char c)
 void IridiumSBD::SBDRINGSeen()
 {
    ringAsserted = true;
-   diagprint(F("SBDRING alert seen!\r\n"));
+   //diagprint(F("SBDRING alert seen!\r\n"));
+   log_d("SBDRING alert seen!");
 }
 
 // Read characters until we find one that doesn't match SBDRING
@@ -1331,11 +1355,19 @@ void IridiumSBD::SBDRINGSeen()
 // nextChar.
 void IridiumSBD::filterSBDRING()
 {
+	//log_v(">> %s", __FUNCTION__);
+	unsigned long for_counter = 0;
+	unsigned long while_counter = 0;
+
 	String s;
 	String str;
    if(!this->useSerial) check9603data(); // Check for new 9603 serial data
    while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    {
+		while_counter++;
+		if (while_counter %1000 == 0) {
+	   	log_v("%s while()", __FUNCTION__);
+		}
       char c;
       if (this->useSerial)
       {
@@ -1367,7 +1399,13 @@ void IridiumSBD::filterSBDRING()
          else
          {
             // Delay no more than 10 milliseconds waiting for next char in SBDRING
-            for (unsigned long start = millis(); ((this->useSerial && (stream->available() == 0)) || ((!this->useSerial) && (i2cSerAvailable() == 0))) && millis() - start < FILTERTIMEOUT; );
+			for_counter = 0;	
+            for (unsigned long start = millis(); ((this->useSerial && (stream->available() == 0)) || ((!this->useSerial) && (i2cSerAvailable() == 0))) && millis() - start < FILTERTIMEOUT; ) {
+				for_counter++;
+				if (for_counter%1000) {	
+					log_v("%s for() %u", __FUNCTION__, for_counter);
+				}
+			}
 
             if(!this->useSerial) check9603data(); // Check for new 9603 serial data
 
@@ -1384,18 +1422,22 @@ void IridiumSBD::filterSBDRING()
          nextChar = c;
       }
    }
+	//log_v("<< %s", __FUNCTION__);
 }
 
 const char IridiumSBD::SBDRING[] = "SBDRING\r\n";
 
 int IridiumSBD::filteredavailable()
 {
+	//log_v(">> %s", __FUNCTION__);
    filterSBDRING();
+	//log_v("<< %s", __FUNCTION__);
    return head - tail + (nextChar != -1 ? 1 : 0);
 }
 
 int IridiumSBD::filteredread()
 {
+	//log_v(">> %s", __FUNCTION__);
    filterSBDRING();
 
    // Use up the queue first
@@ -1415,6 +1457,7 @@ int IridiumSBD::filteredread()
       return c;
    }
 
+	//log_v("<< %s", __FUNCTION__);
    return -1;
 }
 
