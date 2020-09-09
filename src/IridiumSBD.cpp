@@ -21,6 +21,7 @@ You should have received a copy of the GNU Lesser General Public
 License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+#include "../../../include/my_common.h"
 
 #include <time.h>
 #include "IridiumSBD.h"
@@ -882,8 +883,8 @@ bool IridiumSBD::noBlockWait(int seconds)
 // stored in response buffer for later parsing by caller.
 bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
 {
-   unsigned long while_counter = 0;
-   unsigned long for_counter = 0;
+   bool rb = true;
+	unsigned long while_counter = 0;
 	log_v(">> %s", __FUNCTION__);
    /*
    diagprint(F("Waiting for response "));
@@ -903,13 +904,27 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
    enum {LOOKING_FOR_PROMPT, GATHERING_RESPONSE, LOOKING_FOR_TERMINATOR};
    int promptState = prompt ? LOOKING_FOR_PROMPT : LOOKING_FOR_TERMINATOR;
    //consoleprint(F("<< "));
-   log_d("<< ");
-   for_counter = 0;
-   for (unsigned long start=millis(); millis() - start < 1000UL * atTimeout;)
+   //log_d("<< ");
+   
+   unsigned long for_counter = 0;
+   unsigned long start = millis();
+   unsigned long now = start;
+   unsigned long last = start;
+   unsigned timeout = TIME_1S*atTimeout;
+   //for (unsigned long start=millis(); millis() - start < 1000UL * atTimeout;)
+   while (true)
    {
-		for_counter++;
-   		if (for_counter%100000 == 0) {
-	   	log_v("%s for() %u", __FUNCTION__, for_counter);
+		now = millis();
+	   for_counter++;
+	   if ((now -start) > timeout) {
+	   		MY_LOG("%s now(%lu) - start(%u) > %lu", __FUNCTION__, now, start, timeout);
+		   break;
+	   }
+   		if ((now-last) > TIME_1S) {
+	   	log_d("%s for() %lu", __FUNCTION__, for_counter);
+		last = now;
+		} else {
+	   	MY_LOG("%s for() %lu", __FUNCTION__, for_counter);
 		}
 
       if (cancelled())
@@ -920,7 +935,7 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
       {
 		while_counter++;
    		if (while_counter%1000 == 0) {
-   		log_v("%s while() %u", __FUNCTION__, while_counter);
+   		log_v("%s while() %lu", __FUNCTION__, while_counter);
 		}
 
          char c = filteredread();
@@ -962,8 +977,10 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
          if (c == terminator[matchTerminatorPos])
          {
             ++matchTerminatorPos;
-            if (terminator[matchTerminatorPos] == '\0')
-               return true;
+            if (terminator[matchTerminatorPos] == '\0') {
+				rb = true;
+               goto __EXIT;
+			}
          }
          else
          {
@@ -971,8 +988,10 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
          }
       } // while (filteredavailable() > 0)
    } // timer loop
+	rb = false;
+__EXIT:
    log_v("<< %s", __FUNCTION__);
-   return false;
+   return rb;
 }
 
 bool IridiumSBD::cancelled()
@@ -1358,15 +1377,23 @@ void IridiumSBD::filterSBDRING()
 	//log_v(">> %s", __FUNCTION__);
 	unsigned long for_counter = 0;
 	unsigned long while_counter = 0;
+	unsigned long start = millis();
+	unsigned long now = start;
+	unsigned long last = start;
+	unsigned timeout = TIME_1S*atTimeout;
 
 	String s;
 	String str;
    if(!this->useSerial) check9603data(); // Check for new 9603 serial data
+   //while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    {
 		while_counter++;
-		if (while_counter %1000 == 0) {
-	   	log_v("%s while()", __FUNCTION__);
+		now = millis();
+		if ( (now - start) >TIME_1S ) {	
+			log_v("%s while() %lu", __FUNCTION__, while_counter);
+		} else {
+			MY_LOG("%s while() %lu", __FUNCTION__, while_counter);
 		}
       char c;
       if (this->useSerial)
@@ -1401,10 +1428,7 @@ void IridiumSBD::filterSBDRING()
             // Delay no more than 10 milliseconds waiting for next char in SBDRING
 			for_counter = 0;	
             for (unsigned long start = millis(); ((this->useSerial && (stream->available() == 0)) || ((!this->useSerial) && (i2cSerAvailable() == 0))) && millis() - start < FILTERTIMEOUT; ) {
-				for_counter++;
-				if (for_counter%1000) {	
-					log_v("%s for() %u", __FUNCTION__, for_counter);
-				}
+				MY_LOG("%s for() %lu", __FUNCTION__, for_counter);
 			}
 
             if(!this->useSerial) check9603data(); // Check for new 9603 serial data
