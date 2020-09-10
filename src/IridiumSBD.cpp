@@ -917,15 +917,15 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
 		now = millis();
 	   for_counter++;
 	   if ((now -start) > timeout) {
-	   		MY_LOG("%s now(%lu) - start(%u) > %lu", __FUNCTION__, now, start, timeout);
+	   		log_e("%s now(%lu) - start(%u) > %lu", __FUNCTION__, now, start, timeout);
 		   break;
 	   }
    		if ((now-last) > TIME_1S) {
 	   	log_d("%s for() %lu", __FUNCTION__, for_counter);
 		last = now;
-		} else {
+		} 
 	   	MY_LOG("%s for() %lu", __FUNCTION__, for_counter);
-		}
+		
 
       if (cancelled())
          return false;
@@ -937,6 +937,7 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
    		if (while_counter%1000 == 0) {
    		log_v("%s while() %lu", __FUNCTION__, while_counter);
 		}
+   		MY_LOG("%s while() %lu", __FUNCTION__, while_counter);
 
          char c = filteredread();
          if (prompt)
@@ -1374,7 +1375,7 @@ void IridiumSBD::SBDRINGSeen()
 // nextChar.
 void IridiumSBD::filterSBDRING()
 {
-	//log_v(">> %s", __FUNCTION__);
+	MY_LOG(">> %s", __FUNCTION__);
 	unsigned long for_counter = 0;
 	unsigned long while_counter = 0;
 	unsigned long start = millis();
@@ -1390,11 +1391,12 @@ void IridiumSBD::filterSBDRING()
    {
 		while_counter++;
 		now = millis();
-		if ( (now - start) >TIME_1S ) {	
+		if ( (now - last) >TIME_1S ) {	
 			log_v("%s while() %lu", __FUNCTION__, while_counter);
-		} else {
-			MY_LOG("%s while() %lu", __FUNCTION__, while_counter);
+			last = now;
 		}
+		MY_LOG("%s while() %lu", __FUNCTION__, while_counter);
+		
       char c;
       if (this->useSerial)
       {
@@ -1446,22 +1448,22 @@ void IridiumSBD::filterSBDRING()
          nextChar = c;
       }
    }
-	//log_v("<< %s", __FUNCTION__);
+	MY_LOG("<< %s", __FUNCTION__);
 }
 
 const char IridiumSBD::SBDRING[] = "SBDRING\r\n";
 
 int IridiumSBD::filteredavailable()
 {
-	//log_v(">> %s", __FUNCTION__);
+	MY_LOG(">> %s", __FUNCTION__);
    filterSBDRING();
-	//log_v("<< %s", __FUNCTION__);
+	MY_LOG("<< %s", __FUNCTION__);
    return head - tail + (nextChar != -1 ? 1 : 0);
 }
 
 int IridiumSBD::filteredread()
 {
-	//log_v(">> %s", __FUNCTION__);
+	MY_LOG(">> %s", __FUNCTION__);
    filterSBDRING();
 
    // Use up the queue first
@@ -1481,7 +1483,7 @@ int IridiumSBD::filteredread()
       return c;
    }
 
-	//log_v("<< %s", __FUNCTION__);
+	MY_LOG("<< %s", __FUNCTION__);
    return -1;
 }
 
