@@ -684,7 +684,7 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
       diagprint(checksum);
       diagprint(F("\r\n"));
 	  */
-	  log_i("[%d bytes] Checksum:%d", checksum);
+	  log_i("[%d bytes] Checksum:%d", txDataSize, checksum);
 
       if (!waitForATResponse(NULL, 0, NULL, "0\r\n\r\nOK\r\n"))
          return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
