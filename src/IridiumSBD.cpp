@@ -217,6 +217,7 @@ bool IridiumSBD::hasRingAsserted()
       {
 	      ret = true; // Return true
 	      //diagprint(F("ringPin seen!\r\n"));
+	      log_w("ringPin seen!");
       }
    }
 
@@ -695,9 +696,13 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
 #if true // use long string implementation
       if (txTxtMessage == NULL) // It's ok to have a NULL txtTxtMessage if the transaction is RX only
       {
-         send(F("AT+SBDWT=\r"));
+#if MY_FIX
+		  send(F("AT+SBDWT=\r"));
          if (!waitForATResponse())
             return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
+#else
+		log_d("FIXME - skip send NULL string");
+#endif
       }
       else
       {
@@ -1065,9 +1070,13 @@ int IridiumSBD::doSBDRB(uint8_t *rxBuffer, size_t *prxBufferSize)
    {
       size = 256 * i2cSerRead() + i2cSerRead();
    }
+   /*
    consoleprint(F("[Binary size:"));
    consoleprint(size);
    consoleprint(F("]"));
+   */
+   uint16_t csum = 0;
+   log_d("[Binary size: %d]", size);
 
    for (uint16_t bytesRead = 0; bytesRead < size;)
    {
@@ -1087,6 +1096,8 @@ int IridiumSBD::doSBDRB(uint8_t *rxBuffer, size_t *prxBufferSize)
          {
             c = i2cSerRead();
          }
+		 log_d("SBDRB:%d %02X", bytesRead, c);
+         csum += (uint16_t)c;
          bytesRead++;
          if (rxBuffer && prxBufferSize)
          {
@@ -1131,9 +1142,12 @@ int IridiumSBD::doSBDRB(uint8_t *rxBuffer, size_t *prxBufferSize)
    {
       checksum = 256 * i2cSerRead() + i2cSerRead();
    }
+   /*
    consoleprint(F("[csum:"));
    consoleprint(checksum);
    consoleprint(F("]"));
+   */
+   log_d("[csum: (Real)%d %d]", csum, checksum);
 
    // Return actual size of returned buffer
    if (prxBufferSize)
@@ -1366,7 +1380,7 @@ void IridiumSBD::SBDRINGSeen()
 {
    ringAsserted = true;
    //diagprint(F("SBDRING alert seen!\r\n"));
-   log_d("SBDRING alert seen!");
+   log_w("SBDRING alert seen!");
 }
 
 // Read characters until we find one that doesn't match SBDRING
@@ -1386,7 +1400,6 @@ void IridiumSBD::filterSBDRING()
 	String s;
 	String str;
    if(!this->useSerial) check9603data(); // Check for new 9603 serial data
-   //while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    while (((this->useSerial && (stream->available() > 0)) || ((!this->useSerial) && (i2cSerAvailable() > 0))) && nextChar == -1)
    {
 		while_counter++;
@@ -1416,7 +1429,7 @@ void IridiumSBD::filterSBDRING()
 		}
 	  str += s;
 
-	  log_d("%s %s", s.c_str(), str.c_str());
+	  log_d("%s [%s]", s.c_str(), str.c_str());
       if (*head != 0 && c == *head)
       {
          ++head;
@@ -1431,6 +1444,9 @@ void IridiumSBD::filterSBDRING()
 			for_counter = 0;	
             for (unsigned long start = millis(); ((this->useSerial && (stream->available() == 0)) || ((!this->useSerial) && (i2cSerAvailable() == 0))) && millis() - start < FILTERTIMEOUT; ) {
 				MY_LOG("%s for() %lu", __FUNCTION__, for_counter);
+				if ( cancelled()){
+					log_e("BUG - canceled is true!");
+				}
 			}
 
             if(!this->useSerial) check9603data(); // Check for new 9603 serial data
