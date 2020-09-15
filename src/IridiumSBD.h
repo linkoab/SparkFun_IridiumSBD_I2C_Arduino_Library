@@ -133,7 +133,7 @@ public:
    int passThruI2Cread(uint8_t *rxBuffer, size_t &rxBufferSize, size_t &numBytes);
    int passThruI2Cwrite(uint8_t *txBuffer, size_t &txBufferSize);
 
-   IridiumSBD(Stream &str, int sleepPinNo = -1, int ringPinNo = -1)
+   IridiumSBD(Stream &str, int sleepPinNo = -1, int ringPinNo = -1, bool enable_ring = true)
    {
       useSerial = true;
       stream = &str;
@@ -146,7 +146,8 @@ public:
       sleepPin = sleepPinNo;
       ringPin = ringPinNo;
       msstmWorkaroundRequested = true;
-      ringAlertsEnabled = {ringPinNo != -1};
+      //ringAlertsEnabled = {ringPinNo != -1};
+      ringAlertsEnabled = enable_ring;
       ringAsserted = false;
       lastPowerOnTime = 0UL;
       head = SBDRING;
