@@ -922,8 +922,8 @@ bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char 
 		now = millis();
 	   for_counter++;
 	   if ((now -start) > timeout) {
-	   		log_e("%s now(%lu) - start(%u) > %lu", __FUNCTION__, now, start, timeout);
-		   break;
+			log_e("TIMEOUT!! now(%lu) - start(%u) > %lu", now, start, timeout);
+			break;
 	   }
    		if ((now-last) > TIME_1S) {
 	   	log_d("%s for() %lu", __FUNCTION__, for_counter);
