@@ -613,6 +613,7 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
 {
    //diagprint(F("internalSendReceive\r\n"));
    log_d("internalSendReceive");
+   char buffer[32] = {0x00};
 
    if (this->asleep)
       return ISBD_IS_ASLEEP;
@@ -624,9 +625,13 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
          return ISBD_MSG_TOO_LONG;
 
       // send will use serial or wire as appropriate
-      send(F("AT+SBDWB="), true, false);
-      send(txDataSize);
-      send(F("\r"), false);
+      //send(F("AT+SBDWB="), true, false);
+      //send(txDataSize);
+      //send(F("\r"), false);
+	  sprintf(buffer,"AT+SBDWB=%d\r", txDataSize);
+	  log_d("send: %s", buffer);
+	  send(buffer);
+
       if (!waitForATResponse(NULL, 0, NULL, "READY\r\n"))
          return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
 
@@ -696,13 +701,11 @@ int IridiumSBD::internalSendReceiveSBD(const char *txTxtMessage, const uint8_t *
 #if true // use long string implementation
       if (txTxtMessage == NULL) // It's ok to have a NULL txtTxtMessage if the transaction is RX only
       {
-#if MY_FIX
-		  send(F("AT+SBDWT=\r"));
+		 //send(F("AT+SBDWT=\r"));
+			log_d("AT CMD:AT+SBDWT=\\r");
+		 send("AT+SBDWT=\r");
          if (!waitForATResponse())
             return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
-#else
-		log_d("FIXME - skip send NULL string");
-#endif
       }
       else
       {
