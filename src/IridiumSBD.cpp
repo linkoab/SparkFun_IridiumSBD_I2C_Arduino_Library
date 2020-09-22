@@ -22,6 +22,7 @@ License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "../../../include/my_common.h"
+#include <SafeString.h>
 
 #include <time.h>
 #include "IridiumSBD.h"
@@ -886,10 +887,121 @@ bool IridiumSBD::noBlockWait(int seconds)
    return true;
 }
 
+//FIXME
+extern SafeString UART2_string;
+createSafeString(at_token, maxCmdLength +1);
+createSafeString(at_response, maxCmdLength +1);
+bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
+{
+	bool rb = true;
+	bool done = false;
+	size_t index_prompt = 0;
+	size_t index_ring = 0;
+	size_t index_terminator = 0;
+	createSafeString(at_string, maxCmdLength +1);
+	char ch = 0x00;
+	int  ch_i = 0;
+
+	String s = terminator;
+	s.replace("\r", "\\r");
+	s.replace("\n", "\\n");
+	log_d(">> Waiting for %s terminator %s", prompt? prompt:"",  s.c_str());
+	s.replace("\\r", "");
+	s.replace("\\n", "");
+	log_d("Waiting for new terminator %s", s.c_str());
+
+	if (UART2_string.length() > 0) {
+		log_e("BUG - UART2 string: '%s'", UART2_string.c_str());
+		UART2_string.clear();
+	}
+	
+	
+	if (response)
+		memset(response, 0, responseSize);
+	uint32_t while_counter = 0;
+	uint32_t for_counter = 0;
+	uint32_t start = millis();
+	uint32_t now = start;
+	uint32_t last = start;
+	uint32_t timeout = TIME_1S*atTimeout;
+
+
+	//for (unsigned long start=millis(); millis() - start < 1000UL * atTimeout;) {
+	while (true) {
+		for_counter++;
+		if ((now -start) > timeout) {
+			log_e("TIMEOUT!! now(%lu) - start(%u) > %lu", now, start, timeout);
+			break;
+		}
+		if ((now-last) > TIME_1S) {
+			log_d("%s for() %lu", __FUNCTION__, for_counter);
+			last = now;
+		}
+		MY_LOG("%s for() %lu", __FUNCTION__, for_counter);
+
+		if (cancelled()) {
+			rb = false;
+			goto __EXIT;
+		}
+		
+		if (!done) {
+			if ( Serial2.available()) {
+				ch_i = Serial2.read();
+				ch = (char) ch_i;
+				if (ch == 0x00) {
+					log_e("BUG recv character %02x", ch);
+				} else {
+					at_string += ch;
+					UART2_string += ch;
+					MY_LOG("UART2 recv character %02x %c %s %s", ch, ch, UART2_string.c_str(), at_string.c_str());
+				}
+			}
+		}
+		//UART2_string.read(Serial2);
+
+		if (UART2_string.nextToken(at_token, "\r\n")) { // process at most one token per loop    
+			log_d("at_token: %s", at_token.c_str());
+			index_ring = at_token.indexOf("SBDRING");
+			if (index_ring < at_token.length()) {
+				log_d("SBDRING:%u '%s'", index_ring,  at_token.c_str());
+				SBDRINGSeen();
+			}
+			index_prompt = at_token.indexOf(prompt);
+			if (index_prompt < at_token.length()) {
+				at_token.substring(at_response, index_prompt+strlen(prompt));
+				log_d("prompt:%u '%s' '%s'", index_prompt,  at_token.c_str(), at_response.c_str());
+				if (responseSize > at_response.length()) {
+					strncpy(response, at_response.c_str(), responseSize);
+				}
+			}
+
+			index_terminator = at_token.indexOf(s.c_str());
+			if (index_terminator < at_token.length()) { // Done!!
+				log_d("indexOf terminator: %u %s", index_terminator, at_token.c_str());
+				rb = true;
+				goto __EXIT;
+			}
+		}
+		done = at_string.endsWith(terminator);
+		if (done) {
+			rb = true;
+			log_d("done:%d rb:%d index_terminator:%u", done, rb, index_terminator);
+			break;
+		}
+		now = millis();
+	}
+	
+__EXIT:
+	//	log_v("<< %s", __FUNCTION__, rb);
+	now = millis();
+	log_d("<< %08lu return:%s index: %u %u", now-start, rb?"True":"False", index_prompt, index_terminator);
+	return rb;
+}
+
 // Wait for response from previous AT command.  This process terminates when "terminator" string is seen or upon timeout.
 // If "prompt" string is provided (example "+CSQ:"), then all characters following prompt up to the next CRLF are
 // stored in response buffer for later parsing by caller.
-bool IridiumSBD::waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
+bool IridiumSBD::OLD_waitForATResponse(char *response, int responseSize, const char *prompt, const char *terminator)
 {
    bool rb = true;
 	unsigned long while_counter = 0;
@@ -1041,13 +1153,14 @@ int IridiumSBD::doSBDRB(uint8_t *rxBuffer, size_t *prxBufferSize)
    bool rxOverflow = false;
 
    send(F("AT+SBDRB\r"));
-   if (!waitForATResponse(NULL, 0, NULL, "AT+SBDRB\r")) // waits for its own echo
+   if (!OLD_waitForATResponse(NULL, 0, NULL, "AT+SBDRB\r")) // waits for its own echo
       return cancelled() ? ISBD_CANCELLED : ISBD_PROTOCOL_ERROR;
 
    if(!this->useSerial) check9603data(); // Check for any 9603 serial data
 
    // Time to read the binary data: size[2], body[size], checksum[2]
    unsigned long start = millis();
+
    while (millis() - start < 1000UL * atTimeout)
    {
       if(!this->useSerial) check9603data(); // Keep checking for new 9603 serial data
