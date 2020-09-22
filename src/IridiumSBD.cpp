@@ -995,6 +995,7 @@ __EXIT:
 	//	log_v("<< %s", __FUNCTION__, rb);
 	now = millis();
 	log_d("<< %08lu return:%s index: %u %u", now-start, rb?"True":"False", index_prompt, index_terminator);
+	UART2_string.clear();
 	return rb;
 }
 
